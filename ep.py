@@ -46,14 +46,19 @@ __SHOW_VOTE_COUNT_PATTERN__VC = 'votecount'
 __SHOW_VOTE_COUNT_PATTERN__ = (r'<span .* itemprop = \"ratingCount\" > (?P<' + __SHOW_VOTE_COUNT_PATTERN__VC + r'> \d+ [,\d+ ]* ) < \/span >').replace(' ', __WS__)
 __SHOW_TITLE_PATTERN__ = r'tt[\d]+'
 
-__HEADING__ = '|%s.%s|%s|%s|%s|%s|'
+mode = 1
+
+__SHOW_TT__ = False
+__HEADING__ = '|%s.%s|%s|%s|%s|%s|%s'
 
 __EPISODE_NO_RATING__ = '***'
 __EPISODE_NO_VOTES__ = '***'
 
 tableLen = 0
 
-__USAGE__ = """Use: py ep.py mode [show_name show_code ...]
+__USAGE__ = """Use: py ep.py [options] mode show_name show_code ...
+
+options:\t-tt\t\tTo list the episode links in a column
 
 mode:\t\trate\t\tTo sort all the episodes by their rating
 \t\tdate\t\tTo sort all the episodes by their date
@@ -65,7 +70,7 @@ show_code:\t\t\tThe IMDb code of the show
 
 Examples:
 ep rate "Game of Thrones":\tSorts all the Game of Thrones episodes by their ratings
-ep date tt4635276:\t\tSorts all the Master of None episodes by their date
+ep -t date tt4635276:\t\tSorts all the Master of None episodes by their date and displays all the links
 
 Common Mistake:
 If the name of the show has multiple words, enclose it in quotation marks."""
@@ -156,6 +161,7 @@ class Episode:
     maxDateLen = 0
     maxRatingLen = 0
     maxVoteLen = 0
+    maxTT = 0
 
     def __HEADING__RATE_FILLER(self):
         return (
@@ -168,7 +174,8 @@ class Episode:
                     center(self.getAirDate(), max(12, Episode.maxDateLen + 4)),
                     {True: center(str(__EPISODE_NO_VOTES__), max(9, Episode.maxVoteLen + 4)),
                      False: center(str(-self.votecount), max(9, Episode.maxVoteLen + 4))}
-                        [self.votecount > 0]
+                        [self.votecount > 0],
+                   {False: "", True: center("tt" + self.tt, max(8, Episode.maxTT + 6)) + "|"}[__SHOW_TT__]
                 )
 
     def __HEADING__DATE_FILLER(self):
@@ -182,7 +189,8 @@ class Episode:
                         [self.rating > 0],
                     {True: center(str(__EPISODE_NO_VOTES__), max(9, Episode.maxVoteLen + 4)),
                      False: center(str(-self.votecount), max(9, Episode.maxVoteLen + 4))}
-                        [self.votecount > 0]
+                        [self.votecount > 0],
+                   {False: "", True: center("tt" + self.tt, max(8, Episode.maxTT + 6)) + "|"}[__SHOW_TT__]
                 )
 
     def __HEADING__VOTE_FILLER(self):
@@ -196,7 +204,8 @@ class Episode:
                     {True: center(str(__EPISODE_NO_RATING__), max(8, Episode.maxRatingLen + 4)),
                      False: center(str(-self.rating), max(8, Episode.maxRatingLen + 4))}
                         [self.rating > 0],
-                    center(self.getAirDate(), max(12, Episode.maxDateLen + 4))
+                    center(self.getAirDate(), max(12, Episode.maxDateLen + 4)),
+                   {False: "", True: center("tt" + self.tt, max(8, Episode.maxTT + 6)) + "|"}[__SHOW_TT__]
                 )
 
     def __init__(self, show):
@@ -254,27 +263,32 @@ class Episode:
             if len(str(-self.votecount)) > Episode.maxVoteLen:
                 Episode.maxVoteLen = len(str(-self.votecount))
 
+    def setTT(self, tt):
+        self.tt = tt
+        if len(self.tt) > Episode.maxTT:
+            Episode.maxTT = len(self.tt)
+
     def setDescription(self, description):
         self.description = description
 
     def __lt__(self, other):
-        if sys.argv[1] == 'rate':
+        if sys.argv[mode] == 'rate':
             return (self.rating, self.votecount) < (other.rating, other.votecount)
-        elif sys.argv[1] == 'date':
+        elif sys.argv[mode] == 'date':
             return self.airdate < other.airdate
-        elif sys.argv[1] == 'vote':
+        elif sys.argv[mode] == 'vote':
             return self.votecount < other.votecount
 
     def __str__(self):
-        if sys.argv[1] == 'rate':
+        if sys.argv[mode] == 'rate':
             return __HEADING__ % (
                 self.__HEADING__RATE_FILLER()
             )
-        elif sys.argv[1] == 'date':
+        elif sys.argv[mode] == 'date':
             return __HEADING__ % (
                 self.__HEADING__DATE_FILLER()
             )
-        elif sys.argv[1] == 'vote':
+        elif sys.argv[mode] == 'vote':
             return __HEADING__ % (
                 self.__HEADING__VOTE_FILLER()
             )
@@ -418,25 +432,27 @@ def left(text, maxLength):
 
 def printResult(show, episodes):
     global tableLen
-    if sys.argv[1] == 'rate':
+    if sys.argv[mode] == 'rate':
         heading = __HEADING__ % (
             right('S', max(3, Episode.maxSeasonLen + 2)),
             left('EP', max(4, Episode.maxEpisodeLen + 2)),
             center('RATE', max(8, Episode.maxRatingLen + 4)),
             center('NAME', max(8, Episode.maxNameLen + 4)),
             center('AIR DATE', max(12, Episode.maxDateLen + 4)),
-            center('VOTES', max(9, Episode.maxVoteLen + 4))
+            center('VOTES', max(9, Episode.maxVoteLen + 4)),
+            {False: "", True: center('LINK', max(8, Episode.maxTT + 6)) + "|"}[__SHOW_TT__]
         )
-    elif sys.argv[1] == 'date':
+    elif sys.argv[mode] == 'date':
         heading = __HEADING__ % (
             right('S', max(3, Episode.maxSeasonLen + 2)),
             left('EP', max(4, Episode.maxEpisodeLen + 2)),
             center('AIR DATE', max(12, Episode.maxDateLen + 4)),
             center('NAME', max(8, Episode.maxNameLen + 4)),
             center('RATE', max(8, Episode.maxRatingLen + 4)),
-            center('VOTES', max(9, Episode.maxVoteLen + 4))
+            center('VOTES', max(9, Episode.maxVoteLen + 4)),
+            {False: "", True: center('LINK', max(8, Episode.maxTT + 6)) + "|"}[__SHOW_TT__]
         )
-    elif sys.argv[1] == 'vote':
+    elif sys.argv[mode] == 'vote':
         heading = __HEADING__ % (
             right('S', max(3, Episode.maxSeasonLen + 2)),
             left('EP', max(4, Episode.maxEpisodeLen + 2)),
@@ -444,6 +460,7 @@ def printResult(show, episodes):
             center('NAME', max(8, Episode.maxNameLen + 4)),
             center('RATE', max(8, Episode.maxRatingLen + 4)),
             center('AIR DATE', max(12, Episode.maxDateLen + 4)),
+            {False: "", True: center('LINK', max(8, Episode.maxTT + 6)) + "|"}[__SHOW_TT__]
         )
     tableLen = len(heading)
     heading += "\n" + '-'*tableLen
@@ -486,6 +503,7 @@ def getEpisodes(show):
             for groups in re.finditer(pattern, str(html)):
                 ep = Episode(show)
 
+                ep.setTT(groups[__EPISODE_INFO_PATTERN__TT])
                 ep.setName(groups[__EPISODE_INFO_PATTERN__EPISODE_NAME])
                 ep.setNumber(groups[__EPISODE_INFO_PATTERN__SEASON_NUMBER], groups[__EPISODE_INFO_PATTERN__EPISODE_NUMBER])
                 try:
@@ -513,7 +531,7 @@ def getEpisodes(show):
             print(e)
             raise NotFoundException(NotFoundException.__EPISODE_MSG__.format('information'))
 
-    return episodes        
+    return episodes
 
 #
 #  ███╗   ███╗ █████╗ ██╗███╗   ██╗
@@ -528,11 +546,18 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print(__USAGE__)
     else:
-        if sys.argv[1] not in ['rate', 'date', 'vote']:
+        k = 1
+        while sys.argv[k].startswith('-'):
+            if sys.argv[k] == "-tt":
+                __SHOW_TT__ = True
+            k = k + 1
+        if sys.argv[k] not in ['rate', 'date', 'vote']:
             print(__USAGE__)
         else:
+            mode = k
+            k = k + 1
             i = 0
-            for show in sys.argv[2:]:
+            for show in sys.argv[k:]:
                 i = i + 1
                 show = show.lower()
                 try:
